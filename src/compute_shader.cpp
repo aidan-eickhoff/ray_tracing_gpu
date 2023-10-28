@@ -76,6 +76,44 @@ void ComputeShader::compile_shader() {
 	{
 		std::cout << "ERROR::SHADER::FILE_NOT_SUCCESSFULLY_READ: " << e.what() << std::endl;
 	}
+
+	//GLSL shader include
+	size_t location = computeCode.find("#include");
+	while(location  != std::string::npos) {
+		size_t offset = 0;
+		while(computeCode.at(location + offset) != '\n') {
+			offset++;
+		}
+		std::string include_line = computeCode.substr(location, offset);
+		std::string include_filepath = include_line.substr(include_line.find("\"") + 1, include_line.rfind("\"") - include_line.find("\"") - 1);
+		std::string header_filepath = include_filepath;
+
+		std::string def_file_contents = readFile(std::filesystem::path(SHADER_DIR).append(include_filepath.append(".glsl")));
+		std::string header_contents = readFile(std::filesystem::path(SHADER_DIR).append("include").append(header_filepath.append("_h.glsl")));
+
+		computeCode.replace(location, offset, header_contents);
+		computeCode.append(def_file_contents);
+		location = computeCode.find("#include");
+	}
+
+	location = computeCode.find("#incl_def");
+	while(location  != std::string::npos) {
+		size_t offset = 0;
+		while(computeCode.at(location + offset) != '\n') {
+			offset++;
+		}
+		std::string include_line = computeCode.substr(location, offset);
+		std::string include_filepath = include_line.substr(include_line.find("\"") + 1, include_line.rfind("\"") - include_line.find("\"") - 1);
+		include_filepath.append(".glsl");
+
+		std::string file_contents = readFile(std::filesystem::path(SHADER_DIR).append(include_filepath));
+
+		computeCode.replace(location, offset, file_contents);
+		location = computeCode.find("#incl_def");
+	}
+
+
+
 	const char* cShaderCode = computeCode.c_str();
 	// 2. compile shaders
 	GLuint compute;
@@ -93,6 +131,29 @@ void ComputeShader::compile_shader() {
 	// delete the shaders as they're linked into our program now and no longer necessary
 	glDeleteShader(compute);
 
+}
+
+std::string readFile(const std::filesystem::path path) {
+	std::ifstream cShaderFile;
+	// ensure ifstream objects can throw exceptions:
+	cShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+	try
+	{
+		// open files
+		cShaderFile.open(path);
+
+		std::stringstream cShaderStream;
+		// read file's buffer contents into streams
+		cShaderStream << cShaderFile.rdbuf();
+		// close file handlers
+		cShaderFile.close();
+		// convert stream into string
+		return cShaderStream.str();
+	}
+	catch (std::ifstream::failure& e)
+	{
+		std::cout << "ERROR::SHADER::FILE_NOT_SUCCESSFULLY_READ: " << e.what() << std::endl;
+	}
 }
 
 static void check_error(GLuint program, bool shader) {

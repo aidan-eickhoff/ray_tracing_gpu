@@ -46,8 +46,8 @@ ModernScreen::ModernScreen(const std::filesystem::path& path_vertex,const std::f
 	try 
 	{
 		// open files
-		vShaderFile.open( std::filesystem::path(SHADER_DIR).append(path_vertex.c_str()));
-		fShaderFile.open( std::filesystem::path(SHADER_DIR).append(path_fragment.c_str()));
+		vShaderFile.open( std::filesystem::path(SHADER_DIR).append("rendering").append(path_vertex.c_str()));
+		fShaderFile.open( std::filesystem::path(SHADER_DIR).append("rendering").append(path_fragment.c_str()));
 		std::stringstream vShaderStream, fShaderStream;
 		// read file's buffer contents into streams
 		vShaderStream << vShaderFile.rdbuf();
