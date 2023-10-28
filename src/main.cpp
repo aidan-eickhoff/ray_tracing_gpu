@@ -60,48 +60,43 @@ int main(int argc, char** argv)
     std::cout << "\n Press the [R] key on your keyboard to create a ray towards the mouse cursor" << std::endl
                 << std::endl;
 
+	//create a window
     Window window { "Final Project", config.windowSize, OpenGLVersion::GL2, true };
+
+	//create a "screen" -- handles rendering of the calculated view stored in a 2D texture
 	ModernScreen modern_screen("vertex.glsl", "fragment.glsl", config.windowSize);
 	modern_screen.set_fov(config.cameras[0].fieldOfView);
+
+	//create an object which handles our ray-tracing compute shader
 	ComputeShader cs;
 	cs.set_shader_file("ray-trace.glsl");
 	cs.compile_shader();
-	GLuint tex = ModernScreen::gen_texture();
+	ModernScreen::gen_texture();
+
+
+	//creates a trackball object which allows panning and zooming -- adapted from TU Delft professors :)
     Trackball camera { &window, glm::radians(config.cameras[0].fieldOfView), config.cameras[0].distanceFromLookAt };
 	config.features.extra.dof.fov = glm::radians(config.cameras[0].fieldOfView);
     camera.setCamera(config.cameras[0].lookAt, glm::radians(config.cameras[0].rotation), config.cameras[0].distanceFromLookAt + 6);
 
+	//select which scene to load
     SceneType sceneType { SceneType::Dragon };
 
+	//load the scene
 	Scene scene = loadScenePrebuilt(sceneType, config.dataPath);
     BVH bvh(scene, config.features);
 
-
-    window.registerKeyCallback([&](int key, int /* scancode */, int action, int /* mods */) {
-        if (action == GLFW_PRESS) {
-            switch (key) {
-            case GLFW_KEY_R: {
-                // Shoot a ray. Produce a ray from camera to the far plane.
-            } break;
-            case GLFW_KEY_A: {
-            } break;
-            case GLFW_KEY_S: {
-            } break;
-            case GLFW_KEY_ESCAPE: {
-                window.close();
-            } break;
-            };
-        }
-    });
-
+	//allow window resize
 	modern_screen.bind_resize_callback(window.get_window());
 
+	//push the BVH Nodes to the GPU
 	GLuint node_buffer;
 	glGenBuffers(1, &node_buffer);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, node_buffer);
 	glNamedBufferStorage(node_buffer, bvh.nodes().size_bytes(), bvh.nodes().data(), GL_MAP_READ_BIT);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, node_buffer);
 
+	//push the primitives to the GPU
 	GLuint primitive_buffer;
 	glGenBuffers(1, &primitive_buffer);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, primitive_buffer);
@@ -118,6 +113,7 @@ int main(int argc, char** argv)
 	glBindBufferBase(GL_UNIFORM_BUFFER, 4, uniform_buffer);
 
 
+	//push the materials to the GPU
 	std::vector<Material> mesh_materials;
 	for(const Mesh &m : scene.meshes) {
 		mesh_materials.push_back(m.material);
@@ -130,7 +126,7 @@ int main(int argc, char** argv)
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, mesh_material_buffer);
 
 
-
+	//push the settings to the GPU
 	config.features.enableShading = false;
 	config.features.shadingModel = ShadingModel::Lambertian;
 	config.features.enableNormalInterp = false;
@@ -151,9 +147,9 @@ int main(int argc, char** argv)
 	glBindBufferBase(GL_UNIFORM_BUFFER, 5, settings_buffer);
 
 
+	//main loop
 	while(!window.shouldClose()) {
 		window.updateInput();
-
 
 		using clock = std::chrono::high_resolution_clock;
 		const auto start = clock::now();
