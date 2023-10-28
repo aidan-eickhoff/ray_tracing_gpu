@@ -56,10 +56,6 @@ struct BVHInterface {
 public:
     virtual ~BVHInterface() {};
 
-    // Return true if something is hit, false otherwise. On a hit, the distance 't' on the
-    // ray object is updated, and hit information is stored in the 'hitInfo' object.
-    virtual bool intersect(RenderState& state, Ray& ray, HitInfo& hitInfo) = 0;
-
     // Accessors to underlying data
     virtual std::span<const Node> nodes() const = 0;
     virtual std::span<Node> nodes() = 0;

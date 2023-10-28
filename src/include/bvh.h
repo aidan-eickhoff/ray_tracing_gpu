@@ -8,7 +8,6 @@
 // For a description of the method's arguments, refer to 'bounding_volume_hierarchy.cpp'
 // This method is unit-tested, so do not change the function signature.
 AxisAlignedBox computePrimitiveAABB(const BVHInterface::Primitive primitive);
-void updateHitInfo(RenderState& state, const BVHInterface::Primitive& primitive, const Ray& ray, HitInfo& hitInfo);
 
 
 // TODO: Standard feature
@@ -36,13 +35,8 @@ uint32_t computeAABBLongestAxis(const AxisAlignedBox& aabb);
 // For a description of the method's arguments, refer to 'bounding_volume_hierarchy.cpp'
 // This method is unit-tested, so do not change the function signature.
 size_t splitPrimitivesByMedian(const AxisAlignedBox& aabb, uint32_t axis, std::span<BVHInterface::Primitive> primitives);
-
-// TODO: Standard feature
-// Hierarchy traversal routine; called by the BVH's intersect(), you must implement this method.
-// For a description of the method's arguments, refer to 'bounding_volume_hierarchy.cpp'
-// This method is unit-tested, so do not change the function signature.
-bool intersectRayWithBVH(RenderState& state, BVHInterface& bvh, Ray& ray, HitInfo& hitInfo);
-bool intersect_ray_shape(const AxisAlignedBox& box, Ray& ray);
+size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::span<BVHInterface::Primitive> primitives);
+float surface_area_of_primitives(std::span<BVHInterface::Primitive> primitives);
 
 
 // The implementing class where you will put most of the BVH implementation; this class must conform
@@ -56,11 +50,6 @@ struct BVH : public BVHInterface {
     // NOTE: this constructor is used in tests, so do not change its function signature.
     BVH(const Scene& scene, const Features& features);
 
-    // See BVHInterface::intersect(...) for argument descriptions
-    bool intersect(RenderState& state, Ray& ray, HitInfo& hitInfo)
-    {
-        return intersectRayWithBVH(state, *this, ray, hitInfo);
-    }
 
 private: // Private members
     uint32_t m_numLevels;
@@ -98,12 +87,12 @@ public: // Visual debug
     // Draw the bounding boxes of the nodes at the selected level.
     // For a description of the method's arguments, refer to 'bounding_volume_hierarchy.cpp'
     // You are free to modify this function's signature.
-    void debugDrawLevel(int level, std::vector<Ray> debugRays, RenderState state);
+    void debugDrawLevel(int level);
 
     // Draw data of the leaf at the selected index.
     // For a description of the method's arguments, refer to 'bounding_volume_hierarchy.cpp'
     // You are free to modify this function's signature.
-    void debugDrawLeaf(int leafIndex, std::vector<Ray> debugRays, RenderState state);
+    void debugDrawLeaf(int leafIndex);
 
 public: // Public getters
     // Accessors to underlying data

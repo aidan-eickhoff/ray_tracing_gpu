@@ -4,7 +4,6 @@
 struct BVHInterface;
 struct Image;
 struct Features;
-struct RenderState;
 struct Scene;
 class Sampler;
 class Screen;

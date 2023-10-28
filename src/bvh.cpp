@@ -1,11 +1,6 @@
 #include "bvh.h"
-#include "draw.h"
-#include "interpolate.h"
 #include "intersect.h"
-#include "render.h"
 #include "scene.h"
-#include "extra.h"
-#include "texture.h"
 #include <bit>
 #include <chrono>
 #include <framework/opengl_includes.h>
@@ -17,79 +12,6 @@ using Primitive = BVHInterface::Primitive;
 using std::cout;
 using std::endl;
 
-
-/// Input: an axis-aligned bounding box with the following parameters: minimum coordinates box.lower and maximum coordinates box.upper
-/// Output: if intersects then modify the hit parameter ray.t and return true, otherwise return false
-bool intersect_ray_shape(const AxisAlignedBox& box, Ray& ray)
-{
-
-	float t_x_lower = (box.lower.x - ray.origin.x) * ray.inv_d.x;
-	float t_x_upper = (box.upper.x - ray.origin.x) * ray.inv_d.x;
-	float t_y_lower = (box.lower.y - ray.origin.y) * ray.inv_d.y;
-	float t_y_upper = (box.upper.y - ray.origin.y) * ray.inv_d.y;
-	float t_z_lower = (box.lower.z - ray.origin.z) * ray.inv_d.z;
-	float t_z_upper = (box.upper.z - ray.origin.z) * ray.inv_d.z;
-
-	float t_in_all = std::max({std::min(t_x_lower, t_x_upper), std::min(t_y_lower, t_y_upper), std::min(t_z_lower, t_z_upper)});
-	float t_out_one = std::min({std::max(t_x_lower, t_x_upper), std::max(t_y_lower, t_y_upper), std::max(t_z_lower, t_z_upper)});
-
-	if(t_in_all > t_out_one || t_out_one <= 0) {
-		return false;
-	} 
-	return true;
-}
-
-float intersect_ray_shape_distance(const AxisAlignedBox& box, Ray& ray)
-{
-	float t_x_lower = (box.lower.x - ray.origin.x) * ray.inv_d.x;
-	float t_x_upper = (box.upper.x - ray.origin.x) * ray.inv_d.x;
-
-	float t_y_lower = (box.lower.y - ray.origin.y) * ray.inv_d.y;
-	float t_y_upper = (box.upper.y - ray.origin.y) * ray.inv_d.y;
-
-	float t_z_lower = (box.lower.z - ray.origin.z) * ray.inv_d.z;
-	float t_z_upper = (box.upper.z - ray.origin.z) * ray.inv_d.z;
-
-
-	float t_in_all = std::max({std::min(t_x_lower, t_x_upper), std::min(t_y_lower, t_y_upper), std::min(t_z_lower, t_z_upper)});
-	float t_out_one = std::min({std::max(t_x_lower, t_x_upper), std::max(t_y_lower, t_y_upper), std::max(t_z_lower, t_z_upper)});
-
-	if(t_in_all > t_out_one || t_out_one <= 0 || t_in_all > ray.t) {
-		return std::numeric_limits<float>::max();
-	} 
-	return t_in_all;
-}
-
-// Helper method to fill in hitInfo object. This can be safely ignored (or extended).
-// Note: many of the functions in this helper tie in to standard/extra features you will have
-// to implement separately, see interpolate.h/.cpp for these parts of the project
-void updateHitInfo(RenderState& state, const BVHInterface::Primitive& primitive, const Ray& ray, HitInfo& hitInfo)
-{
-	const auto& [v0, v1, v2] = std::tie(primitive.v0, primitive.v1, primitive.v2);
-	const auto& mesh = state.scene.meshes[primitive.meshID];
-	const auto n = glm::normalize(glm::cross(v1.position - v0.position, v2.position - v0.position));
-	const auto p = ray.origin + ray.t * ray.direction;
-
-	// First, fill in default data, unrelated to separate features
-	hitInfo.material = mesh.material;
-	hitInfo.normal = n;
-	hitInfo.barycentricCoord = computeBarycentricCoord(v0.position, v1.position, v2.position, p);
-
-	// Next, if `features.enableNormalMapping` is true, generate smoothly interpolated vertex normals
-	if (state.features.enableNormalInterp) {
-		hitInfo.normal = interpolateNormal(v0.normal, v1.normal, v2.normal, hitInfo.barycentricCoord);
-	}
-
-	// Next, if `features.enableTextureMapping` is true, generate smoothly interpolated vertex uvs
-	if (state.features.enableTextureMapping) {
-		hitInfo.texCoord = interpolateTexCoord(v0.texCoord, v1.texCoord, v2.texCoord, hitInfo.barycentricCoord);
-	}
-
-	// Finally, catch flipped normals
-	if (glm::dot(ray.direction, n) > 0.0f) {
-		hitInfo.normal = -hitInfo.normal;
-	}
-}
 
 // BVH constructor; can be safely ignored. You should not have to touch this
 // NOTE: this constructor is tested, so do not change the function signature.
@@ -252,102 +174,36 @@ size_t splitPrimitivesByMedian(const AxisAlignedBox& aabb, uint32_t axis, std::s
 	return (primitives.size() + 1) / 2; 
 }
 
-// TODO: Standard feature
-// Hierarchy traversal routine; called by the BVH's intersect(),
-// you must implement this method and implement it carefully!
-//
-// If `features.enableAccelStructure` is not enabled, the method should just iterate the BVH's
-// underlying primitives (or the scene's geometry). The default imlpementation already does this.
-// You will have to implement the part which actually traverses the BVH for a faster intersect,
-// given that `features.enableAccelStructure` is enabled.
-//
-// This method returns `true` if geometry was hit, and `false` otherwise. On first/closest hit, the
-// distance `t` in the `ray` object is updated, and information is updated in the `hitInfo` object.
-//
-// - state;    the active scene, and a user-specified feature config object, encapsulated
-// - bvh;      the actual bvh which should be traversed for faster intersection
-// - ray;      the ray intersecting the scene's geometry
-// - hitInfo;  the return object, with info regarding the hit geometry
-// - return;   boolean, if geometry was hit or not
-//
-// This method is unit-tested, so do not change the function signature.
-bool intersectRayWithBVH(RenderState& state, BVHInterface& bvh, Ray& ray, HitInfo& hitInfo)
+size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::span<BVH::Primitive> primitives)
 {
+	std::sort(primitives.begin(), primitives.end(), 
+			  [axis](Primitive a, Primitive b) {
+		return computePrimitiveCentroid(a)[axis] < computePrimitiveCentroid(b)[axis];
+	});
 
-	if(state.features.extra.enableMotionBlur) {
-		return intersectRayWithBVHTime(state, bvh, ray, hitInfo);
-	}
+	size_t split_num = 0;
+	float min_value = std::numeric_limits<float>::max();
 
-	// Relevant data in the constructed BVH
-	std::span<BVHInterface::Node> nodes = bvh.nodes();
-	std::span<BVHInterface::Primitive> primitives = bvh.primitives();
+	size_t inc_amount = std::max(primitives.size() / 40u, 1ull);
 
-	// Return value
-	bool is_hit = false;
+	for(size_t i = 0; i < primitives.size(); i+=inc_amount) {
+		float val = surface_area_of_primitives(primitives.subspan(0, i)) * i + surface_area_of_primitives(primitives.subspan(i, primitives.size() - i)) * (primitives.size() - i);
 
-	if (state.features.enableAccelStructure) {
-
-		BVHInterface::Node* curr = &nodes[0], *stack[1024]{};
-		size_t stack_ptr = 0;
-
-		while(true) {
-			if(curr->isLeaf()) {
-				for(size_t i = curr->primitiveOffset(); i < curr->primitiveCount() + curr->primitiveOffset(); i++) {
-					if (intersectRayWithTriangle(primitives[i].v0.position, primitives[i].v1.position, primitives[i].v2.position, ray, hitInfo)) {
-						updateHitInfo(state, primitives[i], ray, hitInfo);
-						is_hit = true;
-					}
-				}
-
-				if (stack_ptr == 0)
-					break;
-				else
-					curr = stack[--stack_ptr];
-
-				continue;
-			}
-			
-			BVHInterface::Node * child_1 = &nodes[curr->leftChild()];
-			BVHInterface::Node * child_2 = &nodes[curr->rightChild()];
-			float t_1 = intersect_ray_shape_distance(child_1->aabb, ray);
-			float t_2 = intersect_ray_shape_distance(child_2->aabb, ray);
-			if(t_1 > t_2) {
-				std::swap(child_1, child_2);
-				std::swap(t_1, t_2);
-			}
-			if(t_1 == std::numeric_limits<float>::max()) {
-				if(stack_ptr == 0)
-					break;
-				else
-					curr = stack[--stack_ptr];
-				
-			} else {
-				curr = child_1;
-				if(t_2 != std::numeric_limits<float>::max())
-					stack[stack_ptr++] = child_2;
-
-			}
-		}
-	}  else {
-		// Naive implementation; simply iterates over all primitives
-		for (const auto& prim : primitives) {
-			const auto& [v0, v1, v2] = std::tie(prim.v0, prim.v1, prim.v2);
-			if (intersectRayWithTriangle(v0.position, v1.position, v2.position, ray, hitInfo)) {
-				updateHitInfo(state, prim, ray, hitInfo);
-				is_hit = true;
-			}
+		if(val < min_value) {
+			min_value = val;
+			split_num = i;
 		}
 	}
-
-
-	// Intersect with spheres.
-	for (const auto& sphere : state.scene.spheres)
-		is_hit |= intersectRayWithShape(sphere, ray, hitInfo);
-
-	return is_hit;
+	return split_num;
 }
 
-// TODO: Standard feature
+float surface_area_of_primitives(std::span<BVHInterface::Primitive> primitives) {
+	AxisAlignedBox box = computeSpanAABB(primitives);
+	glm::vec3 size = box.upper - box.lower;
+	return 2.0f * (size.x * size.y + size.x * size.z + size.y * size.z);
+}
+
+
 // Leaf construction routine; you should reuse this in in `buildRecursive()`
 // Given an axis-aligned bounding box, and a range of triangles, generate a valid leaf object
 // and store the triangles in the `m_primitives` vector.
@@ -436,107 +292,20 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
 // You are free to modify this function's signature, as long as the constructor builds a BVH
 void BVH::buildNumLevels()
 {
-	std::queue<Node> queue;
-	std::queue<uint32_t> lvl_q;
-
-	queue.push(m_nodes[0]);
-	lvl_q.push(1);
-
-	Node curr;
-	uint32_t curr_lvl;
-
-	m_numLevels = 0;
-
-	while(!queue.empty()) {
-		curr = queue.front();
-		curr_lvl = lvl_q.front();
-		queue.pop();
-		lvl_q.pop();
-
-		if(curr_lvl >= m_numLevels) {
-			m_numLevels = curr_lvl;
-		}
-
-		if(!curr.isLeaf()) {
-			queue.push(m_nodes[curr.leftChild()]);
-			queue.push(m_nodes[curr.rightChild()]);
-			lvl_q.push(curr_lvl + 1);
-			lvl_q.push(curr_lvl + 1);
-		}
-	}
 }
 
 // Compute the nr. of leaves in your hierarchy after construction; useful for `debugDrawLeaf()`
 // You are free to modify this function's signature, as long as the constructor builds a BVH
 void BVH::buildNumLeaves()
 {
-	std::queue<Node> queue;
-
-	queue.push(m_nodes[0]);
-
-	Node curr;
-
-	m_numLeaves = 0;
-
-	while(!queue.empty()) {
-		curr = queue.front();
-		queue.pop();
-
-		if(!curr.isLeaf()) {
-			queue.push(m_nodes[curr.leftChild()]);
-			queue.push(m_nodes[curr.rightChild()]);
-		} else {
-			m_numLeaves++;
-		}
-	}
 }
 
 // Draw the bounding boxes of the nodes at the selected level. Use this function to visualize nodes
 // for debugging. You may wish to implement `buildNumLevels()` first. We suggest drawing the AABB
 // of all nodes on the selected level.
 // You are free to modify this function's signature.
-void BVH::debugDrawLevel(int level, std::vector<Ray> debugRays, RenderState state)
+void BVH::debugDrawLevel(int level)
 {
-	// Example showing how to draw an AABB as a (white) wireframe box.
-	// Hint: use draw functions (see `draw.h`) to draw the contained boxes with different
-	// colors, transparencies, etc.
-	std::queue<Node> queue;
-	std::queue<int> lvl_q;
-
-	queue.push(m_nodes[0]);
-	lvl_q.push(0);
-
-	Node curr;
-	int curr_lvl = 0;
-	Ray r;
-	bool ray_cast = false;
-
-	if(debugRays.size() > 0) {
-		r = debugRays[0];
-		ray_cast = true;
-	}
-
-
-	while(!queue.empty()) {
-		curr = queue.front();
-		curr_lvl = lvl_q.front();
-		queue.pop();
-		lvl_q.pop();
-
-		if(curr_lvl == level) {
-			if(ray_cast && intersect_ray_shape(curr.aabb, r)) {
-				drawAABB(curr.aabb, DrawMode::Wireframe, glm::vec3(1.0f, 0.0f, 0.05f), 0.1f);
-			} else {
-				drawAABB(curr.aabb, DrawMode::Wireframe, glm::vec3(0.05f, 1.0f, 0.05f), 1.0f);
-
-			}
-		} else if(!curr.isLeaf()) {
-			queue.push(m_nodes[curr.leftChild()]);
-			queue.push(m_nodes[curr.rightChild()]);
-			lvl_q.push(curr_lvl + 1);
-			lvl_q.push(curr_lvl + 1);
-		}
-	}
 }
 
 // Draw data of the leaf at the selected index. Use this function to visualize leaf nodes
@@ -545,49 +314,6 @@ void BVH::debugDrawLevel(int level, std::vector<Ray> debugRays, RenderState stat
 // - leafIndex; index of the selected leaf.
 //              (Hint: not the index of the i-th node, but of the i-th leaf!)
 // You are free to modify this function's signature.
-void BVH::debugDrawLeaf(int leafIndex, std::vector<Ray> debugRays, RenderState state)
+void BVH::debugDrawLeaf(int leafIndex)
 {
-	// Example showing how to draw an AABB as a (white) wireframe box.
-	// Hint: use draw functions (see `draw.h`) to draw the contained boxes with different
-	// colors, transparencies, etc.
-	std::queue<Node> queue;
-
-	queue.push(m_nodes[0]);
-
-	Node curr;
-	int currLeaf = 1;
-
-	while(!queue.empty()) {
-		curr = queue.front();
-		queue.pop();
-
-		if(!curr.isLeaf()) {
-			queue.push(m_nodes[curr.leftChild()]);
-			queue.push(m_nodes[curr.rightChild()]);
-		} else if(currLeaf < leafIndex) {
-			currLeaf++;
-		} else {
-			HitInfo h;
-			if(debugRays.size() == 1 && intersect_ray_shape(curr.aabb, debugRays[0])) {
-				drawAABB(curr.aabb, DrawMode::Wireframe, glm::vec3(0.0f, 1.0f, 0.0f), 1.0f);
-				for(size_t i = curr.primitiveOffset(); i < curr.primitiveCount() + curr.primitiveOffset(); i++) {
-					float t_original = debugRays[0].t;
-					if (intersectRayWithTriangle(m_primitives[i].v1.position, m_primitives[i].v0.position, m_primitives[i].v2.position, debugRays[0], h)) {
-						glColor3f(0.0f, 1.0f, 0.0f);
-					} else {
-						glColor3f(0.0f, 0.0f, 1.0f);	
-					}
-					glBegin(GL_TRIANGLES);
-					glVertex3fv(glm::value_ptr(m_primitives[i].v0.position));
-					glVertex3fv(glm::value_ptr(m_primitives[i].v1.position));
-					glVertex3fv(glm::value_ptr(m_primitives[i].v2.position));
-					glEnd();
-					debugRays[0].t = t_original;
-				}
-			} else {
-				drawAABB(curr.aabb, DrawMode::Wireframe, glm::vec3(1.0f, 0.0f, 0.0f), 1.0f);
-			}
-			break;
-		}
-	}
 }
