@@ -127,7 +127,7 @@ int main(int argc, char** argv)
 
 
 	//push the settings to the GPU
-	config.features.enableShading = false;
+	config.features.enableShading = true;
 	config.features.shadingModel = ShadingModel::Lambertian;
 	config.features.enableNormalInterp = false;
 	config.features.enableAccelStructure = true;
@@ -156,14 +156,14 @@ int main(int argc, char** argv)
 		cs.use();
 
 		//uniform variables which must be updated on a frame by frame basis
-		glUniformMatrix3fv(1, 1, GL_FALSE, glm::value_ptr(glm::toMat3(camera.get_rotation_quat())));
-		glUniform3fv(2, 1, glm::value_ptr(camera.position()));
-		glUniform2fv(3, 1, glm::value_ptr(ModernScreen::get_screen_space()));
+		glUniformMatrix3fv(0, 1, GL_FALSE, glm::value_ptr(glm::toMat3(camera.get_rotation_quat())));
+		glUniform3fv(1, 1, glm::value_ptr(camera.position()));
+		glUniform2fv(2, 1, glm::value_ptr(ModernScreen::get_screen_space()));
 		try {
-			glUniform3fv(6, 1, glm::value_ptr(std::get<0>(scene.lights[0]).position));
+			glUniform3fv(3, 1, glm::value_ptr(std::get<0>(scene.lights[0]).position));
 		} catch (const std::bad_variant_access& ex) {
 			glm::vec3 location(1.0f, 1.0f, 1.0f);
-			glUniform3fv(6, 1, glm::value_ptr(location));
+			glUniform3fv(3, 1, glm::value_ptr(location));
 		}
 
 		//call the ray-tracing function

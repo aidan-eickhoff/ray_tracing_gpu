@@ -1,12 +1,5 @@
 #version 430 core
 
-layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
-
-layout(rgba32f, binding = 0) uniform image2D imgOutput;
-layout(location = 1) uniform mat3 camera_rotation;
-layout(location = 2) uniform vec3 camera_position;
-layout(location = 3) uniform vec2 half_screen_space;
-
 struct Ray {
 	float xo, yo, zo;
     float xd, yd, zd;
@@ -48,21 +41,35 @@ struct Primitive {
     Vertex v0, v1, v2;
 };
 
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(location = 0) uniform mat3 camera_rotation;
+layout(location = 1) uniform vec3 camera_position;
+layout(location = 2) uniform vec2 half_screen_space;
+layout(location = 3) uniform vec3 light_position;
+
+
+//texture to store data in
+layout(rgba32f, binding = 0) uniform image2D imgOutput;
+
+//BVH Nodes
 layout(std430, binding = 1) buffer node_buffer
 {
     BVHNode nodes[];
 };
 
+//Scene primitives
 layout(std430, binding = 2) buffer primitive_buffer
 {
     Primitive primitives[];
 };
 
+//Mesh colors/reflectivity/transparency
 layout(std430, binding = 3) buffer meshColorBuffer
 {
     Material mesh_materials[];
 };
 
+//BVH Node sizes
 layout(packed, binding = 4) uniform UBuffer
 {
     uint node_buffer_size;
@@ -70,6 +77,7 @@ layout(packed, binding = 4) uniform UBuffer
     uint mesh_materials_size;
 };
 
+//rendering settings
 layout(binding = 5) uniform options
 {
     uint acceleration;
@@ -81,10 +89,10 @@ layout(binding = 5) uniform options
     // bool multisampling;
 };
 
-layout(location = 6) uniform vec3 light_position;
 
 const uint leafBit = 1 << 31;
 
+//function definitions
 void generateRay(out Ray rval);
 bool intersectRayBVH(inout Ray ray, inout HitInfo h);
 float intersectRayAABB(in Ray ray, in AxisAlignedBox aabb);
