@@ -20,16 +20,7 @@ find_package(OpenMP REQUIRED)
 add_library(FinalProjectLib
 	"src/bvh.cpp"
 	"src/scene.cpp"
-	"src/draw.cpp"
-	"src/screen.cpp"
-	"src/light.cpp"
 	"src/config.cpp"
-	"src/texture.cpp"
-	"src/shading.cpp"
-	"src/interpolate.cpp"
-	"src/recursive.cpp"
-	"src/render.cpp"
-	"src/extra.cpp"
 	"src/modern_screen.cpp"
 	"src/compute_shader.cpp")
 

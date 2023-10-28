@@ -1,16 +1,11 @@
 #include "bvh.h"
 #include "config.h"
-#include "draw.h"
-#include "light.h"
-#include "render.h"
 #include "sampler.h"
-#include "recursive.h"
-#include "screen.h"
 #include "modern_screen.h"
 // Suppress warnings in third-party code.
 #include <framework/disable_all_warnings.h>
-
 #include "compute_shader.h"
+#include "glm/gtc/type_ptr.hpp"
 DISABLE_WARNINGS_PUSH()
 #include <fmt/chrono.h>
 #include <fmt/core.h>
@@ -66,11 +61,10 @@ int main(int argc, char** argv)
                 << std::endl;
 
     Window window { "Final Project", config.windowSize, OpenGLVersion::GL2, true };
-    Screen screen { config.windowSize, true };
 	ModernScreen modern_screen("vertex.glsl", "fragment.glsl", config.windowSize);
 	modern_screen.set_fov(config.cameras[0].fieldOfView);
 	ComputeShader cs;
-	cs.set_shader_file("basic.glsl");
+	cs.set_shader_file("ray-trace.glsl");
 	cs.compile_shader();
 	GLuint tex = ModernScreen::gen_texture();
     Trackball camera { &window, glm::radians(config.cameras[0].fieldOfView), config.cameras[0].distanceFromLookAt };
@@ -88,16 +82,10 @@ int main(int argc, char** argv)
             switch (key) {
             case GLFW_KEY_R: {
                 // Shoot a ray. Produce a ray from camera to the far plane.
-                RenderState state = { .scene = scene, .features = config.features, .bvh = bvh, .sampler = { debugRaySeed } };
-                auto tmp = window.getNormalizedCursorPos();
-                auto pixel = glm::ivec2(tmp * glm::vec2(screen.resolution()));
             } break;
             case GLFW_KEY_A: {
-                debugBVHLeafId++;
             } break;
             case GLFW_KEY_S: {
-                debugBVHLeafId = std::max(0, debugBVHLeafId - 1);
-
             } break;
             case GLFW_KEY_ESCAPE: {
                 window.close();
