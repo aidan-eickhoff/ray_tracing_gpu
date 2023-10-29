@@ -6,6 +6,7 @@
 #include <framework/disable_all_warnings.h>
 #include "compute_shader.h"
 #include "glm/gtc/type_ptr.hpp"
+#include "imgui/imgui_impl_opengl3.h"
 DISABLE_WARNINGS_PUSH()
 #include <fmt/chrono.h>
 #include <fmt/core.h>
@@ -61,7 +62,7 @@ int main(int argc, char** argv)
                 << std::endl;
 
 	//create a window
-    Window window { "Final Project", config.windowSize, OpenGLVersion::GL2, true };
+    Window window { "Final Project", config.windowSize, OpenGLVersion::GL45, true };
 
 	//create a "screen" -- handles rendering of the calculated view stored in a 2D texture
 	ModernScreen modern_screen("vertex.glsl", "fragment.glsl", config.windowSize);
@@ -77,10 +78,13 @@ int main(int argc, char** argv)
 	//creates a trackball object which allows panning and zooming -- adapted from TU Delft professors :)
     Trackball camera { &window, glm::radians(config.cameras[0].fieldOfView), config.cameras[0].distanceFromLookAt };
 	config.features.extra.dof.fov = glm::radians(config.cameras[0].fieldOfView);
-    camera.setCamera(config.cameras[0].lookAt, glm::radians(config.cameras[0].rotation), config.cameras[0].distanceFromLookAt + 6);
+    camera.setCamera(config.cameras[0].lookAt, glm::radians(config.cameras[0].rotation), config.cameras[0].distanceFromLookAt + 7);
 
+	std::cout << camera.distanceFromLookAt() << std::endl;
 	//select which scene to load
     SceneType sceneType { SceneType::Dragon };
+
+	config.features.extra.enableBvhSahBinning = true;
 
 	//load the scene
 	Scene scene = loadScenePrebuilt(sceneType, config.dataPath);
@@ -129,7 +133,7 @@ int main(int argc, char** argv)
 	//push the settings to the GPU
 	config.features.enableShading = true;
 	config.features.shadingModel = ShadingModel::Lambertian;
-	config.features.enableNormalInterp = false;
+	config.features.enableNormalInterp = true;
 	config.features.enableAccelStructure = true;
 
 	unsigned int settings[] = {
@@ -150,6 +154,10 @@ int main(int argc, char** argv)
 	//main loop
 	while(!window.shouldClose()) {
 		window.updateInput();
+
+		// ImGui::Begin("here");
+		// ImGui::Text("hello");
+		// ImGui::End();
 
 		using clock = std::chrono::high_resolution_clock;
 		const auto start = clock::now();
@@ -175,6 +183,9 @@ int main(int argc, char** argv)
 		modern_screen.draw();
 
 		//swap window buffers & time the frame
+		// ImGui::Render();
+		// ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
 		glfwSwapBuffers(window.get_window());
 		const auto end = clock::now();
 		const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();

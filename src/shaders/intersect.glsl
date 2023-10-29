@@ -3,14 +3,13 @@ bool intersectRayBVH(inout Ray ray, inout HitInfo h) {
     
     if(acceleration == 1) {
         uint curr = 0;
-        uint stack[64];
+        uint stack[128];
         uint stack_ptr = 0;
 
         while(true) {
             if((nodes[curr].data1 & leafBit) != 0) {
                 uint offset = nodes[curr].data1 & (~leafBit);
                 for(uint i = offset; i < offset + nodes[curr].data2; i++) {
-                    
                     if(intersectRayTriangle(i, ray, h)) {
                         rval = true;
                         fillOutHitInfo(ray, primitives[i], h);
@@ -54,9 +53,9 @@ bool intersectRayBVH(inout Ray ray, inout HitInfo h) {
         }
     } else {
         for(int i = 0; i < primitive_buffer_size; i++) {
-            v0 = vec3(primitives[i].v0.pos_x, primitives[i].v0.pos_y, primitives[i].v0.pos_z);
-            v1 = vec3(primitives[i].v1.pos_x, primitives[i].v1.pos_y, primitives[i].v1.pos_z);
-            v2 = vec3(primitives[i].v2.pos_x, primitives[i].v2.pos_y, primitives[i].v2.pos_z);
+            // v0 = vec3(primitives[i].v0.pos_x, primitives[i].v0.pos_y, primitives[i].v0.pos_z);
+            // v1 = vec3(primitives[i].v1.pos_x, primitives[i].v1.pos_y, primitives[i].v1.pos_z);
+            // v2 = vec3(primitives[i].v2.pos_x, primitives[i].v2.pos_y, primitives[i].v2.pos_z);
 
             if(intersectRayTriangle(i, ray, h)) {
                 rval = true;

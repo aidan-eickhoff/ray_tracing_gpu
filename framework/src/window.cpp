@@ -48,7 +48,7 @@ Window::Window(std::string_view title, const glm::ivec2& windowSize, OpenGLVersi
             glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
         } else if (glVersion == OpenGLVersion::GL45) {
             glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
+            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
             glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
         }
 #ifndef NDEBUG // Automatically defined by CMake when compiling in Release/MinSizeRel mode.

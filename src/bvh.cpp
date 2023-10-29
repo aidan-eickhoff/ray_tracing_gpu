@@ -292,12 +292,59 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
 // You are free to modify this function's signature, as long as the constructor builds a BVH
 void BVH::buildNumLevels()
 {
+	std::queue<Node> queue;
+	std::queue<uint32_t> lvl_q;
+
+	queue.push(m_nodes[0]);
+	lvl_q.push(1);
+
+	Node curr;
+	uint32_t curr_lvl;
+
+	m_numLevels = 0;
+
+	while(!queue.empty()) {
+		curr = queue.front();
+		curr_lvl = lvl_q.front();
+		queue.pop();
+		lvl_q.pop();
+
+		if(curr_lvl >= m_numLevels) {
+			m_numLevels = curr_lvl;
+		}
+
+		if(!curr.isLeaf()) {
+			queue.push(m_nodes[curr.leftChild()]);
+			queue.push(m_nodes[curr.rightChild()]);
+			lvl_q.push(curr_lvl + 1);
+			lvl_q.push(curr_lvl + 1);
+		}
+	}
 }
 
 // Compute the nr. of leaves in your hierarchy after construction; useful for `debugDrawLeaf()`
 // You are free to modify this function's signature, as long as the constructor builds a BVH
 void BVH::buildNumLeaves()
 {
+	std::queue<Node> queue;
+
+	queue.push(m_nodes[0]);
+
+	Node curr;
+
+	m_numLeaves = 0;
+
+	while(!queue.empty()) {
+		curr = queue.front();
+		queue.pop();
+
+		if(!curr.isLeaf()) {
+			queue.push(m_nodes[curr.leftChild()]);
+			queue.push(m_nodes[curr.rightChild()]);
+		} else {
+			m_numLeaves++;
+		}
+	}
 }
 
 // Draw the bounding boxes of the nodes at the selected level. Use this function to visualize nodes
@@ -306,6 +353,33 @@ void BVH::buildNumLeaves()
 // You are free to modify this function's signature.
 void BVH::debugDrawLevel(int level)
 {
+	// Example showing how to draw an AABB as a (white) wireframe box.
+	// Hint: use draw functions (see `draw.h`) to draw the contained boxes with different
+	// colors, transparencies, etc.
+	std::queue<Node> queue;
+	std::queue<int> lvl_q;
+
+	queue.push(m_nodes[0]);
+	lvl_q.push(0);
+
+	Node curr;
+	int curr_lvl = 0;
+
+	while(!queue.empty()) {
+		curr = queue.front();
+		curr_lvl = lvl_q.front();
+		queue.pop();
+		lvl_q.pop();
+
+		if(curr_lvl == level) {
+			drawAABB(curr.aabb, DrawMode::Wireframe, glm::vec3(0.05f, 1.0f, 0.05f), 1.0f);
+		} else if(!curr.isLeaf()) {
+			queue.push(m_nodes[curr.leftChild()]);
+			queue.push(m_nodes[curr.rightChild()]);
+			lvl_q.push(curr_lvl + 1);
+			lvl_q.push(curr_lvl + 1);
+		}
+	}
 }
 
 // Draw data of the leaf at the selected index. Use this function to visualize leaf nodes
@@ -316,4 +390,29 @@ void BVH::debugDrawLevel(int level)
 // You are free to modify this function's signature.
 void BVH::debugDrawLeaf(int leafIndex)
 {
+	// Example showing how to draw an AABB as a (white) wireframe box.
+	// Hint: use draw functions (see `draw.h`) to draw the contained boxes with different
+	// colors, transparencies, etc.
+	std::queue<Node> queue;
+
+	queue.push(m_nodes[0]);
+
+	Node curr;
+	int currLeaf = 1;
+
+	while(!queue.empty()) {
+		curr = queue.front();
+		queue.pop();
+
+		if(!curr.isLeaf()) {
+			queue.push(m_nodes[curr.leftChild()]);
+			queue.push(m_nodes[curr.rightChild()]);
+		} else if(currLeaf < leafIndex) {
+			currLeaf++;
+		} else {
+			HitInfo h;
+			drawAABB(curr.aabb, DrawMode::Wireframe, glm::vec3(1.0f, 0.0f, 0.0f), 1.0f);
+			break;
+		}
+	}
 }
